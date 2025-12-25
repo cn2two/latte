@@ -1,14 +1,18 @@
--- feel free to tweak <3
+
+-- feel free to tweak
 local plr = game.Players.LocalPlayer
 print("autoheal started")
+
 local xhp = nil
 local as = 76
 local ae = true
 local cam = workspace.CurrentCamera
+
 local st = Drawing.new("Text")
 st.Center = true
 st.Outline = true
 st.Visible = false
+
 local function st1()
     local vp = cam.ViewportSize
     st.Position = Vector2.new(vp.X/2, vp.Y/2 - 80)
@@ -43,7 +47,7 @@ end
 
 spawn(function()
     while true do
-        if iskeypressed(0x2E) then
+        if _G.AutoHeal_Bind and iskeypressed(_G.AutoHeal_Bind) then
             ae = not ae
             print("Autoheal:", ae)
             st1()
@@ -52,6 +56,7 @@ spawn(function()
         wait(0.01)
     end
 end)
+
 spawn(function()
     while true do
         if isrbxactive() then
@@ -62,6 +67,7 @@ spawn(function()
         wait(0.1)
     end
 end)
+
 while true do
     if ae then
         if plr and plr.Character then
@@ -80,7 +86,6 @@ while true do
                         h1()
                     end
                 end
-
                 xhp = hp
             end
         end
