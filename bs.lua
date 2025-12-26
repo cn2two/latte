@@ -97,6 +97,8 @@ local function refreshinventory()
             displaytextinv.Visible = true
             displaytextinv.Position = INVENTORY_TEXT_POSITION
             displaytextinv.Color = INVENTORY_TEXT_COLOR
+            displaytextinv.Font = 2
+            displaytextinv.Size = 16
         end)
 
         if not success then
