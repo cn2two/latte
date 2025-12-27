@@ -1,54 +1,65 @@
 printl("Initializing")
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+
+
 local murderer = Drawing.new("Text")
 murderer.Text = "Murderer: None"
 murderer.Position = Vector2.new(10, 740)
 murderer.Color = Color3.new(1, 0, 0)
 murderer.Size = 24
 murderer.Font = 2
-murderer.Thickness = 4
-murderer.Outline = true
+murderer.Thickness = 10
+murderer.Transparency = 1
 murderer.Visible = true
+
 local sheriff = Drawing.new("Text")
 sheriff.Text = "Sheriff: None"
-sheriff.Position = Vector2.new(10, 815)
-sheriff.Color = Color3.fromRGB(0, 173, 255)
 sheriff.Size = 24
 sheriff.Font = 2
-sheriff.Thickness = 4
-sheriff.Outline = true
+sheriff.Position = Vector2.new(10, 815)
+sheriff.Color = Color3.new(0, 173, 265) 
+sheriff.Thickness = 10
+sheriff.Transparency = 1
 sheriff.Visible = true
+
 local function checkPlayerTools()
-    murderer.Text = "Murderer: None"
-    sheriff.Text = "Sheriff: None"
+    local players = Players:GetChildren()
 
-    for _, player in ipairs(Players:GetChildren()) do
-        if player ~= LocalPlayer then
-            local backpack = player:FindFirstChild("Backpack")
-            local character = player.Character
+    for _, player in ipairs(players) do
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            local knife = backpack:FindFirstChild("Knife")
+            local gun = backpack:FindFirstChild("Gun")
 
-            if backpack then
-                if backpack:FindFirstChild("Knife") then
-                    murderer.Text = "Murderer: " .. player.Name
-                end
-                if backpack:FindFirstChild("Gun") then
-                    sheriff.Text = "Sheriff: " .. player.Name
-                end
+            if knife then
+                murderer.Text = "Murderer: " .. player.Name
             end
 
-            if character then
-                if character:FindFirstChild("Knife") then
-                    murderer.Text = "Murderer: " .. player.Name
-                end
-                if character:FindFirstChild("Gun") then
-                    sheriff.Text = "Sheriff: " .. player.Name
-                end
+            if gun then
+                sheriff.Text = "Sheriff: " .. player.Name
+            end
+        end
+
+        local character = player:FindFirstChild("Character")
+        if character then
+            local knifeInHand = character:FindFirstChild("Knife")
+            local gunInHand = character:FindFirstChild("Gun")
+
+            if knifeInHand then
+                murderer.Text = "Murderer: " .. player.Name
+            end
+
+            if gunInHand then
+                sheriff.Text = "Sheriff: " .. player.Name
             end
         end
     end
 end
+
+local gunDropESP = nil
 
 local function findGunDrop()
     for _, v in ipairs(workspace:GetChildren()) do
@@ -59,7 +70,6 @@ local function findGunDrop()
     end
     return nil
 end
-local gunDropESP = nil
 
 local function updateGunDropESP()
     if gunDropESP then
@@ -81,9 +91,11 @@ local function updateGunDropESP()
     gunDropESP.Thickness = 2
     gunDropESP.Visible = true
 end
+
+
 local DEL_KEY = 0x2E
-local lastPosition = nil
 local pressed = false
+local lastPosition = nil
 
 local function handleGunGrab()
     if not iskeypressed(DEL_KEY) then
@@ -109,7 +121,9 @@ local function handleGunGrab()
     char.HumanoidRootPart.Position = lastPosition
 end
 
-print("Initialized")
+printl("Initialized")
+
+
 while true do
     checkPlayerTools()
     updateGunDropESP()
