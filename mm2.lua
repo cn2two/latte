@@ -1,17 +1,12 @@
 printl("Initializing")
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
-
 local murderer = Drawing.new("Text")
 murderer.Text = "Murderer: None"
 murderer.Position = Vector2.new(10, 740)
 murderer.Color = Color3.new(1, 0, 0)
 murderer.Size = 24
 murderer.Font = 2
-murderer.Thickness = 10
+murderer.Thickness = 10 --increase if u want to see the text clear
 murderer.Transparency = 1
 murderer.Visible = true
 
@@ -20,45 +15,44 @@ sheriff.Text = "Sheriff: None"
 sheriff.Size = 24
 sheriff.Font = 2
 sheriff.Position = Vector2.new(10, 815)
-sheriff.Color = Color3.new(0, 173, 265) 
-sheriff.Thickness = 10
+sheriff.Color = Color3.new(0, 173, 265)
+sheriff.Thickness = 10 --increase if u want to see the text clear
 sheriff.Transparency = 1
 sheriff.Visible = true
 
 local function checkPlayerTools()
-    local players = Players:GetChildren()
-
+    local players = game:GetService("Players"):GetChildren()
+    
     for _, player in ipairs(players) do
         local backpack = player:FindFirstChild("Backpack")
         if backpack then
             local knife = backpack:FindFirstChild("Knife")
             local gun = backpack:FindFirstChild("Gun")
-
+            
             if knife then
                 murderer.Text = "Murderer: " .. player.Name
             end
-
+            
             if gun then
                 sheriff.Text = "Sheriff: " .. player.Name
             end
         end
-
+        
         local character = player:FindFirstChild("Character")
         if character then
             local knifeInHand = character:FindFirstChild("Knife")
             local gunInHand = character:FindFirstChild("Gun")
-
+            
             if knifeInHand then
                 murderer.Text = "Murderer: " .. player.Name
             end
-
+            
             if gunInHand then
                 sheriff.Text = "Sheriff: " .. player.Name
             end
         end
     end
 end
-
 local gunDropESP = nil
 
 local function findGunDrop()
