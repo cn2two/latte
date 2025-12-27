@@ -86,7 +86,7 @@ local lastPosition = nil
 local pressed = false
 
 local function handleGunGrab()
-    if not iskeydown(DEL_KEY) then
+    if not iskeypressed(DEL_KEY) then
         pressed = false
         return
     end
@@ -108,6 +108,7 @@ local function handleGunGrab()
     wait(0.01)
     char.HumanoidRootPart.Position = lastPosition
 end
+
 print("Initialized")
 while true do
     checkPlayerTools()
