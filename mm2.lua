@@ -1,173 +1,117 @@
-
+printl("Initializing")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 local murderer = Drawing.new("Text")
 murderer.Text = "Murderer: None"
 murderer.Position = Vector2.new(10, 740)
 murderer.Color = Color3.new(1, 0, 0)
 murderer.Size = 24
 murderer.Font = 2
-murderer.Thickness = 10 --increase if u want to see the text clear
-murderer.Transparency = 1
+murderer.Thickness = 4
+murderer.Outline = true
 murderer.Visible = true
-
 local sheriff = Drawing.new("Text")
 sheriff.Text = "Sheriff: None"
+sheriff.Position = Vector2.new(10, 815)
+sheriff.Color = Color3.fromRGB(0, 173, 255)
 sheriff.Size = 24
 sheriff.Font = 2
-sheriff.Position = Vector2.new(10, 815)
-sheriff.Color = Color3.new(0, 173, 265)
-sheriff.Thickness = 10 --increase if u want to see the text clear
-sheriff.Transparency = 1
+sheriff.Thickness = 4
+sheriff.Outline = true
 sheriff.Visible = true
-
 local function checkPlayerTools()
-    local players = game:GetService("Players"):GetChildren()
-    
-    for _, player in ipairs(players) do
-        local backpack = player:FindFirstChild("Backpack")
-        if backpack then
-            local knife = backpack:FindFirstChild("Knife")
-            local gun = backpack:FindFirstChild("Gun")
-            
-            if knife then
-                murderer.Text = "Murderer: " .. player.Name
+    murderer.Text = "Murderer: None"
+    sheriff.Text = "Sheriff: None"
+
+    for _, player in ipairs(Players:GetChildren()) do
+        if player ~= LocalPlayer then
+            local backpack = player:FindFirstChild("Backpack")
+            local character = player.Character
+
+            if backpack then
+                if backpack:FindFirstChild("Knife") then
+                    murderer.Text = "Murderer: " .. player.Name
+                end
+                if backpack:FindFirstChild("Gun") then
+                    sheriff.Text = "Sheriff: " .. player.Name
+                end
             end
-            
-            if gun then
-                sheriff.Text = "Sheriff: " .. player.Name
-            end
-        end
-        
-        local character = player:FindFirstChild("Character")
-        if character then
-            local knifeInHand = character:FindFirstChild("Knife")
-            local gunInHand = character:FindFirstChild("Gun")
-            
-            if knifeInHand then
-                murderer.Text = "Murderer: " .. player.Name
-            end
-            
-            if gunInHand then
-                sheriff.Text = "Sheriff: " .. player.Name
+
+            if character then
+                if character:FindFirstChild("Knife") then
+                    murderer.Text = "Murderer: " .. player.Name
+                end
+                if character:FindFirstChild("Gun") then
+                    sheriff.Text = "Sheriff: " .. player.Name
+                end
             end
         end
     end
 end
 
-while true do
-    checkPlayerTools()
-    wait(0.2)
-end
-printl("ESP Loaded")
-
-local gunDropESP = nil
-
 local function findGunDrop()
-    for _, child in ipairs(workspace:GetChildren()) do
-        local drop = child:FindFirstChild("GunDrop")
+    for _, v in ipairs(workspace:GetChildren()) do
+        local drop = v:FindFirstChild("GunDrop")
         if drop then
-
             return drop
         end
     end
     return nil
 end
+local gunDropESP = nil
 
-while true do
-    -- Remove old ESP if exists
+local function updateGunDropESP()
     if gunDropESP then
         gunDropESP:Remove()
         gunDropESP = nil
     end
 
     local gunDrop = findGunDrop()
-    if gunDrop then
-        local pos = gunDrop.Position
+    if not gunDrop then return end
 
+    local screenPos, onScreen = WorldToScreen(gunDrop.Position)
+    if not onScreen or not screenPos then return end
 
-        local screenPos, onScreen = WorldToScreen(pos)
-
-
-        if screenPos then
-            local sx = screenPos.X or screenPos.x
-            local sy = screenPos.Y or screenPos.y
-
-            if sx and sy then
-                local square = Drawing.new("Square")
-                square.Position = Vector2.new(sx, sy)
-                square.Size = Vector2.new(20, 20)
-                square.Color = Color3.new(1, 1, 0)
-                square.Filled = false
-                square.Visible = true
-
-                gunDropESP = square
-
-            else
-            
-            end
-        else
-            printl("nil")
-        end
-    else
-
-    end
-
-    wait(0.02)
+    gunDropESP = Drawing.new("Square")
+    gunDropESP.Position = Vector2.new(screenPos.X - 10, screenPos.Y - 10)
+    gunDropESP.Size = Vector2.new(20, 20)
+    gunDropESP.Color = Color3.new(1, 1, 0)
+    gunDropESP.Filled = false
+    gunDropESP.Thickness = 2
+    gunDropESP.Visible = true
 end
-printl("Gun Drop ESP Loaded")
-
-
-local position = nil
-local DEL_KEY = 0x2E -- Delete key
-
-local function findGunDrop()
-    for _, child in ipairs(workspace:GetChildren()) do
-        local drop = child:FindFirstChild("GunDrop")
-        if drop then
-            printl("GunDrop found in:", child.Name)
-            return drop
-        end
-    end
-    return nil
-end
-
-local function guntp(gunDrop)
-    local player = game.Players.LocalPlayer
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        position = character.HumanoidRootPart.Position
-        character.HumanoidRootPart.Position = gunDrop.Position
-    end
-end
-
-local function teleportBackToLastPosition()
-    local player = game.Players.LocalPlayer
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") and position then
-        character.HumanoidRootPart.Position = position
-    end
-end
-
+local DEL_KEY = 0x2E
+local lastPosition = nil
 local pressed = false
 
-while true do
-    if iskeydown(DEL_KEY) then
-        if not pressed then
-            pressed = true
-
-            local gunDrop = findGunDrop()
-            if gunDrop then
-                guntp(gunDrop)
-                wait(0.01)
-                teleportBackToLastPosition()
-            else
-                printl("Gun not found")
-            end
-        end
-    else
+local function handleGunGrab()
+    if not iskeydown(DEL_KEY) then
         pressed = false
+        return
     end
 
+    if pressed then return end
+    pressed = true
+
+    local gunDrop = findGunDrop()
+    if not gunDrop then
+        printl("Gun not found")
+        return
+    end
+
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    lastPosition = char.HumanoidRootPart.Position
+    char.HumanoidRootPart.Position = gunDrop.Position
+    wait(0.01)
+    char.HumanoidRootPart.Position = lastPosition
+end
+print("Initialized")
+while true do
+    checkPlayerTools()
+    updateGunDropESP()
+    handleGunGrab()
     wait(0.05)
 end
-printl("Gun grabber loaded")
-
