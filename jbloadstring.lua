@@ -211,6 +211,7 @@ local function disableUnwalk()
     originalAnimateParent = nil
     originalAnimatorParent = nil
 end
+print("ironic.frvr is a terrorist")
 
 spawn(function()
     while true do
@@ -227,4 +228,3 @@ spawn(function()
         wait(0.05)
     end
 end)
-print("ironic.frvr is a terrorist")
