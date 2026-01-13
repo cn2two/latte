@@ -1,4 +1,5 @@
  -- AIRDROP ESP
+print("ironic.frvr is a terrorist")
 local fuckweyble2 = true 
 local dropbox, dropoutline, droptext
 local ddd = {R = 255, G = 255, B = 255}
@@ -211,8 +212,6 @@ local function disableUnwalk()
     originalAnimateParent = nil
     originalAnimatorParent = nil
 end
-print("ironic.frvr is a terrorist")
-
 spawn(function()
     while true do
         local pressed = iskeypressed(UNWALK_KEY)
