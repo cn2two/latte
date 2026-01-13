@@ -1,15 +1,13 @@
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local UNWALK_KEY = 0x23 
-local HUM_KEY    = 0x2E
-local airdropEnabled = true
+-- AIRDROP ESP
+local fuckweyble2 = true 
 local dropbox, dropoutline, droptext
 local ddd = {R = 255, G = 255, B = 255}
 local colorx = 2
 
 spawn(function()
     while true do
-        if airdropEnabled then
+        wait(0.01)
+        if fuckweyble2 then
             local drop = workspace:FindFirstChild("Drop")
             if drop and drop:FindFirstChild("Root") then
                 local root = drop.Root
@@ -23,28 +21,32 @@ spawn(function()
 
                     dropbox = Drawing.new("Square")
                     dropbox.Thickness = 1
+                    dropbox.Color = Color3.fromRGB(255,255,255)
                     dropbox.Filled = false
 
                     droptext = Drawing.new("Text")
                     droptext.Font = 2
                     droptext.Size = 17
                     droptext.Text = "Airdrop"
+                    droptext.Color = Color3.fromRGB(255,255,255)
                     droptext.Outline = true
                     droptext.Center = true
                 end
+
                 if post then
-                    local c = post.Color
-                    ddd.R = math.min(255, math.floor(c.R * colorx))
-                    ddd.G = math.min(255, math.floor(c.G * colorx))
-                    ddd.B = math.min(255, math.floor(c.B * colorx))
+                    local partColor = post.Color
+                    ddd.R = math.min(255, math.floor(partColor.R * colorx))
+                    ddd.G = math.min(255, math.floor(partColor.G * colorx))
+                    ddd.B = math.min(255, math.floor(partColor.B * colorx))
                 end
+
                 dropbox.Color = Color3.fromRGB(ddd.R, ddd.G, ddd.B)
-                droptext.Color = dropbox.Color
+                droptext.Color = Color3.fromRGB(ddd.R, ddd.G, ddd.B)
 
-                local top, s1 = WorldToScreen(root.Position + Vector3.new(0,2,0))
-                local bottom, s2 = WorldToScreen(root.Position - Vector3.new(0,2,0))
+                local top, on1 = WorldToScreen(root.Position + Vector3.new(0,2,0))
+                local bottom, on2 = WorldToScreen(root.Position - Vector3.new(0,2,0))
 
-                if s1 and s2 then
+                if on1 and on2 then
                     local h = math.abs(top.Y - bottom.Y)
                     local w = h
                     local x = top.X - w/2
@@ -53,8 +55,8 @@ spawn(function()
                     dropbox.Position = Vector2.new(x,y)
                     dropbox.Size = Vector2.new(w,h)
 
-                    dropoutline.Position = dropbox.Position
-                    dropoutline.Size = dropbox.Size
+                    dropoutline.Position = Vector2.new(x,y)
+                    dropoutline.Size = Vector2.new(w,h)
 
                     droptext.Position = Vector2.new(top.X, y - 16)
 
@@ -66,102 +68,65 @@ spawn(function()
                     dropoutline.Visible = false
                     droptext.Visible = false
                 end
-            else
-                if dropbox then
-                    dropbox.Visible = false
-                    dropoutline.Visible = false
-                    droptext.Visible = false
-                end
+            elseif dropbox then
+                dropbox.Visible = false
+                dropoutline.Visible = false
+                droptext.Visible = false
             end
         end
-        wait(0.01)
     end
 end)
-local unwalkEnabled = false
-local animateScript, animator
-local animateParent, animatorParent
-local lastUnwalkPress = false
-local function enableUnwalk()
-    local char = player.Character
-    if not char then return end
 
-    animateScript = char:FindFirstChild("Animate")
-    if animateScript then
-        animateParent = animateScript.Parent
-        animateScript.Parent = game
-    end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        animator = hum:FindFirstChildOfClass("Animator")
-        if animator then
-            animatorParent = animator.Parent
-            animator.Parent = game
-        end
-    end
-end
-local function disableUnwalk()
-    if animateScript and animateParent then
-        animateScript.Parent = animateParent
-    end
-    if animator and animatorParent then
-        animator.Parent = animatorParent
-    end
-    animateScript, animator = nil, nil
-end
-spawn(function()
-    while true do
-        local pressed = iskeypressed(UNWALK_KEY)
-        if pressed and not lastUnwalkPress then
-            unwalkEnabled = not unwalkEnabled
-            if unwalkEnabled then
-                enableUnwalk()
-            else
-                disableUnwalk()
-            end
-        end
-        lastUnwalkPress = pressed
-        wait(0.05)
-    end
-end)
+-- HITBOX
 local hitboxsize = Vector3.new(12,8,12)
-local hitboxEnabled = true
+local fuckweyble = true
+
 local Targets = {
-    {Parent = "MansionRobbery", Models = {"GuardsFolder"}},
-    {Parent = "OilRig", Models = {"GuardsFolder"}},
-    {Parent = "Drop", Models = {"NPCs"}},
+    {Parent = workspace:FindFirstChild("MansionRobbery"), Models = {"GuardsFolder"}},
+    {Parent = workspace:FindFirstChild("OilRig"), Models = {"GuardsFolder"}},
+    {Parent = workspace:FindFirstChild("Drop"), Models = {"NPCs"}},
 }
-local function expandHead(model)
-    local hum = model:FindFirstChildOfClass("Humanoid")
+
+local function headmansion(model)
+    if not model or not model:IsA("Model") then return end
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
     local head = model:FindFirstChild("Head")
-    if hum and head then
+    if humanoid and head then
         head.Size = hitboxsize
         head.CanCollide = true
     end
 end
-local function scanFolder(folder)
-    for _, v in ipairs(folder:GetChildren()) do
-        if v:IsA("Model") then
-            expandHead(v)
-        elseif v:IsA("Folder") then
-            scanFolder(v)
+
+local function loopall(parent)
+    if not parent then return end
+    for _, child in pairs(parent:GetChildren()) do
+        if child:IsA("Model") then
+            headmansion(child)
+        elseif child:IsA("Folder") then
+            loopall(child)
         end
     end
 end
+
 spawn(function()
     while true do
-        if hitboxEnabled then
+        if fuckweyble then
             local mansion = workspace:FindFirstChild("MansionRobbery")
             if mansion then
                 local boss = mansion:FindFirstChild("ActiveBoss")
-                if boss then expandHead(boss) end
+                if boss then
+                    headmansion(boss)
+                end
             end
 
-            for _, t in ipairs(Targets) do
-                local parent = workspace:FindFirstChild(t.Parent)
+            for _, target in ipairs(Targets) do
+                local parent = workspace:FindFirstChild(target.Parent and target.Parent.Name or "")
                 if parent then
-                    for _, fname in ipairs(t.Models) do
-                        local f = parent:FindFirstChild(fname)
-                        if f then scanFolder(f) end
+                    for _, modelName in ipairs(target.Models) do
+                        local folder = parent:FindFirstChild(modelName)
+                        if folder then
+                            loopall(folder)
+                        end
                     end
                 end
             end
@@ -169,28 +134,96 @@ spawn(function()
         wait(0.5)
     end
 end)
+
+-- FORCE RESET (DEL)
+local RESET_KEY = 0x2E
 local HUM_OFFSET = 0x194
-local lastHumPress = false
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
 local function getHumanoid()
+    if not player then return end
     local char = player.Character
     if not char then return end
     return char:FindFirstChildOfClass("Humanoid")
 end
+
 spawn(function()
+    local last = false
     while true do
         if isrbxactive() then
-            local pressed = iskeypressed(HUM_KEY)
-            if pressed and not lastHumPress then
+            local pressed = iskeypressed(RESET_KEY)
+            if pressed and not last then
                 local hum = getHumanoid()
                 if hum and hum.Address then
                     memory_write("float", hum.Address + HUM_OFFSET, -10)
                 end
             end
-            lastHumPress = pressed
+            last = pressed
         else
-            lastHumPress = false
+            last = false
         end
         wait(0.03)
     end
 end)
-print("cn2 might be allah")
+
+-- UNWALK (DEL)
+local UNWALK_KEY = 0x23
+local enabled = false
+local animateScript
+local animator
+local originalAnimateParent
+local originalAnimatorParent
+local lastPress = false
+
+local function enableUnwalk()
+    local char = player.Character
+    if not char then return end
+
+    animateScript = char:FindFirstChild("Animate")
+    if animateScript then
+        originalAnimateParent = animateScript.Parent
+        animateScript.Parent = game
+    end
+
+    local humanoid = char:FindFirstChild("Humanoid")
+    if humanoid then
+        animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            originalAnimatorParent = animator.Parent
+            animator.Parent = game
+        end
+    end
+end
+
+local function disableUnwalk()
+    if animateScript and originalAnimateParent then
+        animateScript.Parent = originalAnimateParent
+    end
+
+    if animator and originalAnimatorParent then
+        animator.Parent = originalAnimatorParent
+    end
+
+    animateScript = nil
+    animator = nil
+    originalAnimateParent = nil
+    originalAnimatorParent = nil
+end
+
+spawn(function()
+    while true do
+        local pressed = iskeypressed(UNWALK_KEY)
+        if pressed and not lastPress then
+            enabled = not enabled
+            if enabled then
+                enableUnwalk()
+            else
+                disableUnwalk()
+            end
+        end
+        lastPress = pressed
+        wait(0.05)
+    end
+end)
