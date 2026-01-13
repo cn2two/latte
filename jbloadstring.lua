@@ -1,5 +1,5 @@
  -- AIRDROP ESP
-print("ironic.frvr is a terrorist")
+print("ironicfrvr is a terrorist")
 local fuckweyble2 = true 
 local dropbox, dropoutline, droptext
 local ddd = {R = 255, G = 255, B = 255}
