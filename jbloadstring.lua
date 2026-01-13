@@ -227,3 +227,4 @@ spawn(function()
         wait(0.05)
     end
 end)
+print("cn2 might be alah")
