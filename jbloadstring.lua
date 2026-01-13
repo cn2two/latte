@@ -1,4 +1,4 @@
--- AIRDROP ESP
+ -- AIRDROP ESP
 local fuckweyble2 = true 
 local dropbox, dropoutline, droptext
 local ddd = {R = 255, G = 255, B = 255}
@@ -227,4 +227,4 @@ spawn(function()
         wait(0.05)
     end
 end)
-print("cn2 might be alah")
+print("ironic.frvr is a terrorist")
