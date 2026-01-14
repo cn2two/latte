@@ -1,4 +1,4 @@
- -- AIRDROP ESP
+-- AIRDROP ESP
 print("ironicfrvr is a terrorist")
 local fuckweyble2 = true 
 local dropbox, dropoutline, droptext
