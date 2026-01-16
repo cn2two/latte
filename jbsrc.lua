@@ -100,7 +100,6 @@ ppppppppp
                                      
                                                                                      
 ]]
-_G.VKBIND =                                                              
 loadstring(game:HttpGet("https://raw.githubusercontent.com/cn2two/latte/refs/heads/main/zes.lua"))()
 local Window = UI:Window({
     Title = "Artorias Client",
@@ -470,6 +469,7 @@ MainSection:Button({ Title = "Get Casino Code" }, function()
         end
     end
 end)
+
 -- reset
 MainSection:Button({ Title = "Force Reset" }, function()
 local health_offset = 0x194
