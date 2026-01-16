@@ -229,27 +229,19 @@ spawn(function()
 		if pressed and not lastPressed then
 			lastPressed = true
 			UI.Visible = not UI.Visible -- toggle global UI state
+
+			-- iterate all windows and tabs
 			if UI.Windows then
 				for _, window in pairs(UI.Windows) do
+					if window.Internal then
+						window.Internal.Open = UI.Visible
+					end
 					if window.Tabs then
 						for _, tab in pairs(window.Tabs) do
 							if tab.Sections then
 								for _, section in pairs(tab.Sections) do
-									if section.Children then
-										for _, widget in pairs(section.Children.Widgets) do
-											if widget.Children and widget.Children.Drawings then
-												for _, drawingData in pairs(widget.Children.Drawings) do
-													if drawingData.Drawing then
-														drawingData.Drawing.Visible = UI.Visible
-													end
-												end
-											end
-											if widget.Children and widget.Children.Check then
-												for _, line in pairs(widget.Children.Check) do
-													line.Visible = UI.Visible
-												end
-											end
-										end
+									if section.Frame then
+										section.Frame.Visible = UI.Visible
 									end
 								end
 							end
@@ -262,7 +254,7 @@ spawn(function()
 		end
 	end
 end)
---end
+-- end
 
         -- line 1 ends here 
 	Label.Update = function(index)
