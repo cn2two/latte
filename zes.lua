@@ -37,8 +37,6 @@ Section:Keybind({ Title: string, Key: Enum.KeyCode, Flags: { Flags.Widgets.Keybi
 
 ]]
 
-
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
@@ -133,21 +131,26 @@ function Helpers.GetKeyName(KeyCodeNumber)
 end
 
 function Helpers.ImplementFlags()
-	local Flags = { Value = 0 }
+	local Flags = {
+		Value = 0,
+	}
 
 	function Flags.Has(flag)
 		return Flags.Value % (flag * 2) >= flag
 	end
+
 	function Flags.Add(flag)
 		if not Flags.Has(flag) then
 			Flags.Value = Flags.Value + flag
 		end
 	end
+
 	function Flags.Remove(flag)
 		if Flags.Has(flag) then
 			Flags.Value = Flags.Value - flag
 		end
 	end
+
 	function Flags.Toggle(flag)
 		if Flags.Has(flag) then
 			Flags.Remove(flag)
@@ -155,6 +158,7 @@ function Helpers.ImplementFlags()
 			Flags.Add(flag)
 		end
 	end
+
 	function Flags.Set(flag, bool)
 		if bool then
 			Flags.Add(flag)
@@ -162,6 +166,7 @@ function Helpers.ImplementFlags()
 			Flags.Remove(flag)
 		end
 	end
+
 	function Flags.Clear()
 		Flags.Value = 0
 	end
@@ -199,15 +204,31 @@ References.Update = function(reference, value)
 end
 
 Flags = {
-	Window = { NoMove = 2 ^ 0, NoCollapse = 2 ^ 1 },
-	Tab = { Inactive = 2 ^ 0, NoScroll = 2 ^ 1 },
-	Section = { Inactive = 2 ^ 0, NoCollapse = 2 ^ 1 },
-	Widgets = { Label = {}, Button = {}, Checkbox = {}, Slider = {}, Dropdown = {}, MultiDropdown = {}, Keybind = { NoChange = 2 ^ 0 } },
-}
+	Window = {
+		NoMove = 2 ^ 0,
+		NoCollapse = 2 ^ 1,
+	},
+	Tab = {
+		Inactive = 2 ^ 0,
+		NoScroll = 2 ^ 1,
+	},
+	Section = {
+		Inactive = 2 ^ 0,
+		NoCollapse = 2 ^ 1,
+	},
+	Widgets = {
+		Label = {},
+		Button = {},
+		Checkbox = {},
+		Slider = {},
+		Dropdown = {},
+		MultiDropdown = {},
+		Keybind = { NoChange = 2 ^ 0 },
+	},
+} -- Global as matcha loadstring doesn't return anything.
 
-UI = {}
+UI = {} -- Global as matcha loadstring doesn't return anything.
 UI.__index = UI
-UI.Visible = false -- start hidden
 
 function UI:Notify(Options) end
 
@@ -220,43 +241,681 @@ Tab.__index = Tab
 local Section = {}
 Section.__index = Section
 
--- <<< F1 TOGGLE START >>>
-spawn(function()
-	local lastPressed = false
-	while true do
-		wait()
-		local pressed = UserInputService:IsKeyDown(Enum.KeyCode.F1)
-		if pressed and not lastPressed then
-			lastPressed = true
-			UI.Visible = not UI.Visible -- toggle global UI state
+function UI:Window(Options)
+	local Window = setmetatable({}, Window)
 
-			-- iterate all windows and tabs
-			if UI.Windows then
-				for _, window in pairs(UI.Windows) do
-					if window.Internal then
-						window.Internal.Open = UI.Visible
+	Window.Parent = self
+
+	Options = Options or {}
+	Options.Title = Options.Title or ""
+	Options.Size = Options.Size or Vector2.new(700, 500)
+	Options.Folder = Options.Folder or nil
+	Options.Flags = Options.Flags or {}
+	Window.Options = Options
+
+	Window.Flags = Helpers.ImplementFlags()
+
+	for _, Flag in Window.Options.Flags do
+		Window.Flags.Value += Flag
+	end
+
+	if not Options.Open then
+		if Options.Open ~= nil then
+			Options.Open = false
+		else
+			Options.Open = true
+		end
+	end
+
+	Window.Internal = {
+		Running = true,
+		Open = Options.Open,
+		Collapsed = true,
+		Dragging = false,
+		SelectedTab = nil,
+		DragStart = Vector2.new(0, 0),
+		PositionOffset = Vector2.new(0, 0),
+		SizeOffset = Vector2.new(0, 0),
+	}
+
+	Window.Theme = {
+		Global = {
+			LightAccent = Color3.fromRGB(78, 122, 170),
+			Accent = Color3.fromRGB(28, 72, 120),
+			DarkAccent = Color3.fromRGB(28, 52, 80),
+			LightBase = Color3.fromRGB(30, 36, 40),
+			Base = Color3.fromRGB(20, 23, 25),
+			DarkBase = Color3.fromRGB(15, 17, 19),
+			Text = Color3.fromRGB(250, 250, 250),
+			Collapse = Color3.fromRGB(225, 225, 225),
+			Padding = 5,
+			Corner = 5,
+		},
+	}
+
+	if Options.Folder then
+		local FolderName = Options.Folder.Name
+		if not isfolder(FolderName) then
+			makefolder(FolderName)
+		end
+		if not isfolder(FolderName .. "/Themes") then
+			makefolder(FolderName .. "/Themes")
+		end
+		if not isfile(FolderName .. "/Themes/Default.theme") then
+			makefile(FolderName .. "/Themes/Default.theme")
+		end
+		if not isfolder(FolderName .. "/Configs") then
+			makefolder(FolderName .. "/Configs")
+		end
+	end
+
+	Window.Children = {
+		Tabs = {},
+		Drawings = {},
+		Connections = {},
+	}
+
+	local Base = Drawing.new("Square")
+	Base.Filled = true
+	Base.ZIndex = -100
+	Window.Children.Drawings.Base = {
+		Enabled = true,
+		Drawing = Base,
+	}
+
+	local Top = Drawing.new("Square")
+	Top.Filled = true
+	Top.ZIndex = -20
+	Window.Children.Drawings.Top = {
+		Enabled = true,
+		Drawing = Top,
+	}
+
+	local Collapse = Drawing.new("Triangle")
+	Collapse.Filled = true
+	Collapse.ZIndex = -19
+	Window.Children.Drawings.Collapse = {
+		Enabled = false,
+		Drawing = Collapse,
+	}
+
+	local Title = Drawing.new("Text")
+	Title.Outline = true
+	Title.ZIndex = -18
+	Window.Children.Drawings.Title = {
+		Enabled = true,
+		Drawing = Title,
+	}
+
+	local TabContainer = Drawing.new("Square")
+	TabContainer.Filled = true
+	TabContainer.ZIndex = -96
+	Window.Children.Drawings.TabContainer = {
+		Enabled = true,
+		Drawing = TabContainer,
+	}
+
+	local OnPress = Helpers.OnPress(function()
+		if not Window.Internal.Open then
+			return
+		end
+
+		if not Window.Flags.Has(Flags.Window.NoCollapse) and (Helpers.IsMouseInRect(Helpers.GetDrawingBounds(Collapse).Position, Helpers.GetDrawingBounds(Collapse).Size)) then
+			Window.Internal.Collapsed = not Window.Internal.Collapsed
+		elseif not Window.Flags.Has(Flags.Window.NoMove) and (Helpers.IsMouseInRect(Top.Position, Top.Size)) then
+			Window.Internal.Dragging = true
+			Window.Internal.DragStart = Vector2.new(Mouse.X, Mouse.Y) - Window.Internal.PositionOffset
+		end
+	end, Enum.KeyCode.MouseButton1)
+
+	local OnRelease = Helpers.OnRelease(function()
+		Window.Internal.Dragging = false
+		Window.Internal.DragStart = Vector2.new(0, 0)
+	end, Enum.KeyCode.MouseButton1)
+
+	table.insert(Window.Children.Connections, OnPress)
+	table.insert(Window.Children.Connections, OnRelease)
+
+	Window.Update = function()
+		if not Window.Internal.Open then
+			for Name, Drawing in Window.Children.Drawings do
+				Drawing.Drawing.Visible = false
+			end
+			for index, Tab in Window.Children.Tabs do
+				for Name, Drawing in Tab.Children.Drawings do
+					Drawing.Drawing.Visible = false
+				end
+				for index, Section in Tab.Children.Sections do
+					for Name, Drawing in Section.Children.Drawings do
+						Drawing.Drawing.Visible = false
 					end
-					if window.Tabs then
-						for _, tab in pairs(window.Tabs) do
-							if tab.Sections then
-								for _, section in pairs(tab.Sections) do
-									if section.Frame then
-										section.Frame.Visible = UI.Visible
-									end
-								end
-							end
+					for index, Widget in Section.Children.Widgets do
+						for Name, Drawing in Widget.Children.Drawings do
+							Drawing.Drawing.Visible = false
 						end
 					end
 				end
 			end
-		elseif not pressed then
-			lastPressed = false
+			return
+		end
+
+		if Window.Internal.SelectedTab and Window.Internal.SelectedTab.Flags.Has(Flags.Tab.Inactive) then
+			for index, Tab in Window.Children.Tabs do
+				if not Tab.Flags.Has(Flags.Tab.Inactive) then
+					Window.Internal.SelectedTab = Tab
+					return
+				end
+			end
+		end
+
+		local ViewportSize = Helpers.GetWindowSize()
+
+		if Window.Internal.Dragging then
+			local Clamped = Vector2.new(Mouse.X, Mouse.Y) - Window.Internal.DragStart
+			--Clamped = Vector2.new(math.clamp(Clamped.X, -Helpers.GetWindowMiddle(Base.Size / 2).X, ViewportSize.X - Helpers.GetWindowMiddle(Base.Size / 2).X - Base.Size.X), math.clamp(Clamped.Y, -Helpers.GetWindowMiddle(Base.Size / 2).Y, ViewportSize.Y - Helpers.GetWindowMiddle(Base.Size / 2).Y - Base.Size.Y))
+
+			Window.Internal.PositionOffset = Clamped
+		end
+
+		Base.Position = Helpers.GetWindowMiddle(Base.Size / 2) + Window.Internal.PositionOffset
+		Base.Size = Window.Options.Size + Window.Internal.SizeOffset
+		Base.Color = Window.Theme.Global.DarkBase
+		Base.Corner = Window.Theme.Global.Corner
+
+		Top.Position = Base.Position
+		Top.Size = Vector2.new(Base.Size.X, 25)
+		Top.Color = Window.Theme.Global.Accent
+		Top.Corner = Window.Theme.Global.Corner
+
+		Window.Children.Drawings.Collapse.Enabled = not Window.Flags.Has(Flags.Window.NoCollapse)
+		Window.Children.Drawings.Base.Enabled = Window.Internal.Collapsed
+		if Window.Internal.Collapsed then
+			Collapse.PointA = Base.Position + Vector2.new(Base.Size.X - 15, 20)
+			Collapse.PointB = Collapse.PointA + Vector2.new(-8, -15)
+			Collapse.PointC = Collapse.PointA + Vector2.new(8, -15)
+		else
+			Collapse.PointA = Base.Position + Vector2.new(Base.Size.X - 22.5, 13)
+			Collapse.PointB = Collapse.PointA + Vector2.new(15, -8)
+			Collapse.PointC = Collapse.PointA + Vector2.new(15, 8)
+		end
+
+		local TitleBounds = Helpers.GetTextBounds(Title)
+		Title.Position = Top.Position + Vector2.new(4, Top.Size.Y / 2 - TitleBounds.Y / 2)
+		Title.Color = Window.Theme.Global.Text
+		Title.Text = Window.Options.Title
+
+		TabContainer.Position = Base.Position + Vector2.new(0, Top.Size.Y)
+		TabContainer.Size = Vector2.new(Base.Size.X / 5, Base.Size.Y - Top.Size.Y)
+		TabContainer.Color = Window.Theme.Global.Base
+		TabContainer.Corner = Window.Theme.Global.Corner
+
+		for Name, Drawing in Window.Children.Drawings do
+			local IgnoreCollapse = { Window.Children.Drawings.Top, Window.Children.Drawings.Collapse, Window.Children.Drawings.Title }
+			if table.find(IgnoreCollapse, Drawing) then
+				Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open
+			else
+				Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed
+			end
+		end
+
+		for Name, Tab in Window.Children.Tabs do
+			for Name, Drawing in Tab.Children.Drawings do
+				local IsInactive = Tab.Flags.Has(Flags.Tab.Inactive)
+
+				local IgnoreUnValue = { Tab.Children.Drawings.Base, Tab.Children.Drawings.Title }
+				if table.find(IgnoreUnValue, Drawing) then
+					Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed and not IsInactive
+				else
+					Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed and Window.Internal.SelectedTab == Tab and not IsInactive
+				end
+			end
+			for index, Section in Tab.Children.Sections do
+				for Name, Drawing in Section.Children.Drawings do
+					local Bounds = Helpers.GetDrawingBounds(Drawing.Drawing)
+
+					local IsBase = Drawing == Section.Children.Drawings.Base
+					local IsTooDeep = Bounds.Position.Y + Bounds.Size.Y > (Window.Children.Drawings.TabContainer.Drawing.Position.Y + Window.Children.Drawings.TabContainer.Drawing.Size.Y)
+					local IsNotDeepEnough = not IsBase and (Bounds.Position.Y + Bounds.Size.Y) < Window.Children.Drawings.TabContainer.Drawing.Position.Y
+					local IsInactive = Section.Flags.Has(Flags.Section.Inactive)
+
+					local IgnoreCollapse = {
+						Section.Children.Drawings.Top,
+						Section.Children.Drawings.Collapse,
+						Section.Children.Drawings.Title,
+					}
+
+					if table.find(IgnoreCollapse, Drawing) then
+						Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed and Window.Internal.SelectedTab == Tab and not IsTooDeep and not IsNotDeepEnough and not IsInactive
+					else
+						Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed and Section.Internal.Collapsed and Window.Internal.SelectedTab == Tab and not IsTooDeep and not IsNotDeepEnough and not IsInactive
+					end
+				end
+				for index, Widget in Section.Children.Widgets do
+					for Name, Drawing in Widget.Children.Drawings do
+						local Bounds = Helpers.GetDrawingBounds(Drawing.Drawing)
+
+						local IsTooDeep = Bounds.Position.Y + Bounds.Size.Y > (Section.Children.Drawings.Base.Drawing.Position.Y + Section.Children.Drawings.Base.Drawing.Size.Y)
+						local IsNotDeepEnough = (Bounds.Position.Y + Bounds.Size.Y) < Window.Children.Drawings.TabContainer.Drawing.Position.Y
+						local IsSectionInactive = Widget.Parent.Flags.Has(Flags.Section.Inactive)
+
+						Drawing.Drawing.Visible = Drawing.Enabled and Window.Internal.Open and Window.Internal.Collapsed and Section.Internal.Collapsed and Window.Internal.SelectedTab == Tab and not IsTooDeep and not IsNotDeepEnough and not IsSectionInactive
+					end
+				end
+			end
 		end
 	end
-end)
--- end
 
-        -- line 1 ends here 
+	spawn(function()
+		while Window.Internal.Running do
+			wait()
+			local Success, Error = pcall(function()
+				Window.Update()
+				for index, Tab in Window.Children.Tabs do
+					for _, Tab in Window.Children.Tabs do
+						if Tab.Flags.Has(Flags.Tab.Inactive) then
+							index -= 1
+						end
+					end
+					Tab.Update(index)
+					for index, Section in Tab.Children.Sections do
+						for _, Section in Tab.Children.Sections do
+							if Section.Flags.Has(Flags.Section.Inactive) then
+								index -= 1
+							end
+						end
+						Section.Update(index)
+						for index, Widget in Section.Children.Widgets do
+							Widget.Update(index)
+						end
+					end
+				end
+			end)
+
+			if Error then
+				error(Error)
+				break
+			end
+		end
+		for _, Connection in Window.Children.Connections do
+			Connection:Disconnect()
+		end
+		for index, Tab in Window.Children.Tabs do
+			for _, Connection in Tab.Children.Connections do
+				Connection:Disconnect()
+			end
+			for index, Section in Tab.Children.Sections do
+				for _, Connection in Section.Children.Connections do
+					Connection:Disconnect()
+				end
+				for index, Widget in Section.Children.Widgets do
+					for _, Connection in Widget.Children.Connections do
+						Connection:Disconnect()
+					end
+				end
+			end
+		end
+		for _, Drawing in Window.Children.Drawings do
+			Drawing.Drawing:Remove()
+		end
+		for index, Tab in Window.Children.Tabs do
+			for _, Drawing in Tab.Children.Drawings do
+				Drawing.Drawing:Remove()
+			end
+			for index, Section in Tab.Children.Sections do
+				for _, Drawing in Section.Children.Drawings do
+					Drawing.Drawing:Remove()
+				end
+				for index, Widget in Section.Children.Widgets do
+					for _, Drawing in Widget.Children.Drawings do
+						Drawing.Drawing:Remove()
+					end
+					if Widget.Children.Check ~= nil then
+						for _, Drawing in Widget.Children.Check do
+							Drawing:Remove()
+						end
+					end
+					if Widget.Children.OptionDrawings ~= nil then
+						for _, Drawing in Widget.Children.OptionDrawings do
+							Widget.Children.OptionDrawings[_].Base:Remove()
+							Widget.Children.OptionDrawings[_].Title:Remove()
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	return Window
+end
+function Window:Toggle(bool)
+	if bool == nil then
+		self.Internal.Open = not self.Internal.Open
+	else
+		self.Internal.Open = bool
+	end
+end
+function Window:Unload()
+	self.Internal.Running = false
+end
+
+function Window:Tab(Options)
+	local Tab = setmetatable({}, Tab)
+	Tab.Parent = self
+
+	Options = Options or {}
+	Options.Title = Options.Title or ""
+	Options.Flags = Options.Flags or {}
+	Tab.Options = Options
+
+	Tab.Flags = Helpers.ImplementFlags()
+
+	for _, Flag in Tab.Options.Flags do
+		Tab.Flags.Value += Flag
+	end
+
+	Tab.Internal = {
+		Scrolling = false,
+		ScrollStart = 0,
+		Scroll = 0,
+	}
+
+	Tab.Children = {
+		Sections = {},
+		Drawings = {},
+		Connections = {},
+	}
+
+	local Base = Drawing.new("Square")
+	Base.Filled = true
+	Base.ZIndex = -90
+	Tab.Children.Drawings.Base = {
+		Enabled = true,
+		Drawing = Base,
+	}
+
+	local Title = Drawing.new("Text")
+	Title.Outline = true
+	Title.Center = true
+	Title.ZIndex = -89
+	Tab.Children.Drawings.Title = {
+		Enabled = true,
+		Drawing = Title,
+	}
+
+	local ScrollBar = Drawing.new("Square")
+	ScrollBar.Filled = true
+	ScrollBar.ZIndex = -88
+	Tab.Children.Drawings.ScrollBar = {
+		Enabled = false,
+		Drawing = ScrollBar,
+	}
+
+	local OnPress = Helpers.OnPress(function()
+		if not Tab.Parent.Internal.Open then
+			return
+		end
+		if Helpers.IsMouseInRect(Base.Position, Base.Size) then
+			Tab.Parent.Internal.SelectedTab = Tab
+		elseif not Tab.Flags.Has(Flags.Tab.NoScroll) and Tab.Children.Drawings.ScrollBar.Enabled and Tab.Parent.Internal.SelectedTab == Tab and Helpers.IsMouseInRect(ScrollBar.Position, ScrollBar.Size) then
+			Tab.Internal.Scrolling = true
+			Tab.Internal.ScrollStart = Mouse.Y - ScrollBar.Position.Y
+		end
+	end, Enum.KeyCode.MouseButton1)
+
+	local OnRelease = Helpers.OnRelease(function()
+		Tab.Internal.Scrolling = false
+	end, Enum.KeyCode.MouseButton1)
+
+	table.insert(Tab.Children.Connections, OnPress)
+	table.insert(Tab.Children.Connections, OnRelease)
+
+	Tab.Update = function(index)
+		local Window = Tab.Parent
+		local WindowDrawings = Window.Children.Drawings
+
+		Base.Size = Vector2.new(WindowDrawings.TabContainer.Drawing.Size.X - Window.Theme.Global.Padding, WindowDrawings.TabContainer.Drawing.Size.Y / 16)
+		Base.Position = WindowDrawings.TabContainer.Drawing.Position + Vector2.new(Window.Theme.Global.Padding / 2, Base.Size.Y * (index - 1)) + Vector2.new(0, Window.Theme.Global.Padding * index)
+		Base.Color = Window.Theme.Global.LightBase
+		Base.Corner = Window.Theme.Global.Corner
+
+		Title.Position = Base.Position + Vector2.new(Base.Size.X / 2, Base.Size.Y / 2)
+		Title.Color = Window.Theme.Global.Text
+		Title.Text = Tab.Options.Title
+
+		local TotalLength = 0
+		for index, Section in Tab.Children.Sections do
+			if Section.Internal.Collapsed and not Section.Flags.Has(Flags.Section.Inactive) then
+				TotalLength += Section.Internal.Length
+			end
+			if not Section.Flags.Has(Flags.Section.Inactive) then
+				TotalLength += 25
+			end
+		end
+
+		local MaxLength = WindowDrawings.TabContainer.Drawing.Size.Y - (Window.Theme.Global.Padding * 3.5)
+		Tab.Children.Drawings.ScrollBar.Enabled = (TotalLength > MaxLength) and (not Tab.Flags.Has(Flags.Tab.NoScroll))
+		local ScrollBarScale = MaxLength / TotalLength
+
+		ScrollBar.Size = Vector2.new(Window.Theme.Global.Padding * 2, ScrollBarScale * MaxLength)
+		ScrollBar.Position = Vector2.new(WindowDrawings.Base.Drawing.Position.X + WindowDrawings.Base.Drawing.Size.X - ScrollBar.Size.X, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding + ((Tab.Internal.Scroll / (TotalLength - MaxLength)) * (MaxLength - ScrollBar.Size.Y)))
+		ScrollBar.Corner = Window.Theme.Global.Corner
+		ScrollBar.Color = Window.Theme.Global.DarkAccent
+
+		if not Tab.Children.Drawings.ScrollBar.Enabled then
+			Tab.Internal.Scrolling = false
+			Tab.Internal.Scroll = 0
+		end
+
+		if Tab.Internal.Scrolling then
+			Tab.Internal.Scroll = ((TotalLength > MaxLength) and (math.clamp(Mouse.Y - Tab.Internal.ScrollStart, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding + MaxLength - ScrollBar.Size.Y) - (WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding)) / (MaxLength - ScrollBar.Size.Y) * (TotalLength - MaxLength) + Window.Theme.Global.Padding) or 0
+		end
+	end
+
+	if not Tab.Parent.Internal.SelectedTab then
+		Tab.Parent.Internal.SelectedTab = Tab
+	end
+
+	table.insert(Tab.Parent.Children.Tabs, Tab)
+	return Tab
+end
+
+function Tab:Section(Options)
+	local Section = setmetatable({}, Section)
+	Section.Parent = self
+
+	Options = Options or {}
+	Options.Title = Options.Title or ""
+	Options.Flags = Options.Flags or {}
+	Section.Options = Options
+
+	Section.Flags = Helpers.ImplementFlags()
+
+	for _, Flag in Section.Options.Flags do
+		Section.Flags.Value += Flag
+	end
+
+	if not Options.Collapsed then
+		if Options.Collapsed == nil then
+			Options.Collapsed = false
+		else
+			Options.Collapsed = true
+		end
+	end
+
+	Section.Internal = {
+		Collapsed = Options.Collapsed,
+		Length = 0,
+	}
+
+	if Section.Flags.Has(Flags.Section.NoCollapse) then
+		if Section.Internal.Collapsed then
+			Section.Internal.Collapsed = true
+		end
+	end
+
+	Section.Children = {
+		Widgets = {},
+		Drawings = {},
+		Connections = {},
+	}
+
+	local Base = Drawing.new("Square")
+	Base.Filled = true
+	Base.ZIndex = -80
+	Section.Children.Drawings.Base = {
+		Enabled = true,
+		Drawing = Base,
+	}
+
+	local Top = Drawing.new("Square")
+	Top.Filled = true
+	Top.ZIndex = -79
+	Section.Children.Drawings.Top = {
+		Enabled = true,
+		Drawing = Top,
+	}
+
+	local Collapse = Drawing.new("Triangle")
+	Collapse.Filled = true
+	Collapse.ZIndex = -78
+	Section.Children.Drawings.Collapse = {
+		Enabled = false,
+		Drawing = Collapse,
+	}
+
+	local Title = Drawing.new("Text")
+	Title.Outline = true
+	Title.ZIndex = -77
+	Section.Children.Drawings.Title = {
+		Enabled = true,
+		Drawing = Title,
+	}
+
+	local OnPress = Helpers.OnPress(function()
+		if not Section.Parent.Parent.Internal.Open or not Section.Parent.Parent.Internal.Collapsed or Section.Parent.Parent.Internal.SelectedTab ~= Section.Parent then
+			return
+		end
+
+		if not Section.Flags.Has(Flags.Section.NoCollapse) and (Helpers.IsMouseInRect(Helpers.GetDrawingBounds(Collapse).Position, Helpers.GetDrawingBounds(Collapse).Size)) then
+			Section.Internal.Collapsed = not Section.Internal.Collapsed
+		end
+	end, Enum.KeyCode.MouseButton1)
+
+	table.insert(Section.Children.Connections, OnPress)
+
+	Section.Update = function(index)
+		local Length = 0
+		local Window = Section.Parent.Parent
+
+		local WindowDrawings = Window.Children.Drawings
+		local Padding = Window.Theme.Global.Padding
+
+		local Scroll = Section.Parent.Internal.Scroll
+		if Scroll > 0 then
+			Scroll -= Padding
+		end
+
+		local SectionOffset = Vector2.new(0, -Scroll) + Vector2.new(0, 25 + Padding) * (index - 1)
+
+		for _index, Section in Section.Parent.Children.Sections do
+			if Section.Internal.Collapsed and index > _index and not Section.Flags.Has(Flags.Section.Inactive) then
+				SectionOffset += Vector2.new(0, Section.Internal.Length)
+			end
+		end
+
+		Top.Size = Vector2.new(WindowDrawings.Base.Drawing.Size.X - (WindowDrawings.TabContainer.Drawing.Size.X + Padding * 4), 25)
+		Top.Position = WindowDrawings.TabContainer.Drawing.Position + Vector2.new(Padding, Padding) + Vector2.new(WindowDrawings.TabContainer.Drawing.Size.X, 0) + SectionOffset
+		Top.Color = Window.Theme.Global.LightBase
+		Top.Corner = Window.Theme.Global.Corner
+
+		--[[Base.Position = Top.Position + Vector2.new(0, Top.Size.Y + Padding / 2)
+		local MaxBaseSize = ((WindowDrawings.Base.Drawing.Position.Y - Base.Position.Y) + WindowDrawings.Base.Drawing.Size.Y) - (Padding * 2)
+		Base.Size = Vector2.new(Top.Size.X, math.clamp(Section.Internal.Length + Padding / 2, 0, MaxBaseSize))]]
+
+		Base.Position = Top.Position + Vector2.new(0, Top.Size.Y + Padding / 2)
+
+		local MaxVisibleHeight = WindowDrawings.Base.Drawing.Position.Y + WindowDrawings.Base.Drawing.Size.Y - Padding - Base.Position.Y
+		if MaxVisibleHeight < 0 then
+			MaxVisibleHeight = 0
+		end
+
+		Base.Size = Vector2.new(Top.Size.X, math.clamp(Section.Internal.Length + Padding / 2 - math.max(WindowDrawings.Base.Drawing.Position.Y + Padding - Base.Position.Y, 0), 0, MaxVisibleHeight))
+
+		if Base.Position.Y < WindowDrawings.TabContainer.Drawing.Position.Y then
+			Base.Position += Vector2.new(0, WindowDrawings.TabContainer.Drawing.Position.Y - Base.Position.Y)
+			Base.Size = Vector2.new(Base.Size.X, math.min(Base.Size.Y, (WindowDrawings.Base.Drawing.Position.Y + WindowDrawings.Base.Drawing.Size.Y - Padding) - Base.Position.Y) - Padding * 2)
+		end
+
+		Base.Color = Window.Theme.Global.Base
+		Base.Corner = Window.Theme.Global.Corner
+
+		Section.Children.Drawings.Collapse.Enabled = not Section.Flags.Has(Flags.Section.NoCollapse)
+		Section.Children.Drawings.Base.Enabled = Section.Internal.Collapsed
+		local CollapseBounds = Helpers.GetDrawingBounds(Collapse)
+		Collapse.Position = CollapseBounds.Position
+		Collapse.Size = CollapseBounds.Size
+		if Section.Internal.Collapsed then
+			Collapse.PointA = Top.Position + Vector2.new(Top.Size.X - 15, 20)
+			Collapse.PointB = Collapse.PointA + Vector2.new(-8, -15)
+			Collapse.PointC = Collapse.PointA + Vector2.new(8, -15)
+		else
+			Collapse.PointA = Top.Position + Vector2.new(Top.Size.X - 22.5, 13)
+			Collapse.PointB = Collapse.PointA + Vector2.new(15, -8)
+			Collapse.PointC = Collapse.PointA + Vector2.new(15, 8)
+		end
+
+		local TitleBounds = Helpers.GetTextBounds(Title)
+		Title.Position = Top.Position + Vector2.new(4, Top.Size.Y / 2 - TitleBounds.Y / 2)
+		Title.Color = Window.Theme.Global.Text
+		Title.Text = Section.Options.Title
+
+		for index, Widget in Section.Children.Widgets do
+			Length += Widget.Internal.Length
+		end
+		Length += Padding
+
+		Section.Internal.Length = Length
+	end
+
+	table.insert(Section.Parent.Children.Sections, Section)
+	return Section
+end
+
+local Label = {}
+Label.__index = Label
+
+function Section:Label(Options)
+	local Label = setmetatable({}, Label)
+	Label.Parent = self
+
+	Options = Options or {}
+	Options.Title = Options.Title or "No Label Title"
+	Options.Flags = Options.Flags or {}
+	Label.Options = Options
+
+	Label.Flags = Helpers.ImplementFlags()
+
+	for _, Flag in Label.Options.Flags do
+		Label.Flags.Value += Flag
+	end
+
+	Label.Internal = {
+		Length = 0,
+	}
+
+	Label.Children = {
+		Drawings = {},
+		Connections = {},
+	}
+
+	local Title = Drawing.new("Text")
+	Title.Outline = true
+	Title.ZIndex = -60
+	Label.Children.Drawings.Title = {
+		Enabled = true,
+		Drawing = Title,
+	}
+
 	Label.Update = function(index)
 		local Length = 0
 		for _index, Widget in Label.Parent.Children.Widgets do
