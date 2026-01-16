@@ -100,7 +100,7 @@ ppppppppp
                                      
                                                                                      
 ]]
-_G.VKBIND = 0x70                                                             
+_G.VKBIND =                                                              
 loadstring(game:HttpGet("https://raw.githubusercontent.com/cn2two/latte/refs/heads/main/zes.lua"))()
 local Window = UI:Window({
     Title = "Artorias Client",
