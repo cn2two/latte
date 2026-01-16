@@ -94,26 +94,25 @@ ppppppppp
 /  __/ /_/ / /_/ / / / / / /_/ / /_/ / /_/  __/  (__  ) /_/ /_/ / /_/ /  / __/ / /_/ / / / / / /_/ /  / / / / /    / / /_/ /
 \___/\__,_/\__,_/_/_/ /_/_.___/\____/\__/\___/  /____/\__/\____/ .___/  /_/ /_/\__, /_/_/ /_/\__, /  /_/_/ /_/  __/ /_.___/ 
                                                               /_/             /____/        /____/             /___/        
-im watching you ediunbote :3
                                      
                                      
                                      
                                      
                                                                                      
 ]]
+_G.VKBIND = 0x70                                                             
 loadstring(game:HttpGet("https://raw.githubusercontent.com/cn2two/latte/refs/heads/main/zes.lua"))()
 local Window = UI:Window({
     Title = "Artorias Client",
     Size = Vector2.new(700, 500),
     Flags = {},
 })
-_G.VKBIND = 0x70
 local uiVisible = true
 spawn(function()
     local lastPressed = false
     while true do
         task.wait(0.05)
-        local pressed = iskeypressed(VKBIND) 
+        local pressed = iskeypressed(_G.VKBIND) 
         if pressed and not lastPressed then
             lastPressed = true
             uiVisible = not uiVisible
@@ -430,10 +429,11 @@ spawn(function()
         end
     end
 end)
--- Casino Code
+--- Casino Code
 local function getCasinoCode(index)
     local location = workspace.Casino.RobberyDoor.Codes:GetChildren()[index]
     if not location then return nil end
+
     local parts = {}
     for _, part in ipairs(location:GetChildren()) do
         local sG = part:FindFirstChild("SurfaceGui")
@@ -442,27 +442,36 @@ local function getCasinoCode(index)
             if label and label.Text and label.Text ~= "" then
                 local text = tostring(label.Text)
                 if text:match("^%d$") then
-                    table.insert(parts,{digit=text, x=part.Position.X})
+                    table.insert(parts, {digit = text, x = part.Position.X, y = part.Position.Y})
                 end
             end
         end
     end
-    if #parts==0 then return nil end
-    table.sort(parts,function(a,b) return a.x<b.x end)
+
+    if #parts == 0 then return nil end
+    if index == 3 then
+        table.sort(parts, function(a, b) return a.y < b.y end)
+    else
+        table.sort(parts, function(a, b) return a.x < b.x end)
+    end
+
     local code = ""
-    for _,data in ipairs(parts) do code=code..data.digit end
+    for _, data in ipairs(parts) do
+        code = code .. data.digit
+    end
+
     return code
 end
 MainSection:Button({ Title = "Get Casino Code" }, function()
-    for i=1,5 do
+    for i = 1, 5 do
         local code = getCasinoCode(i)
-        if code and #code==4 then
-            notify("Artorias Client","Casino Code is: "..code,10)
+        if code and #code == 4 then
+            notify("Artorias Client", "Casino Code is: " .. code, 10)
         end
     end
 end)
 -- reset
-MainSection:Button({ Title = "Force Reset Now" }, function()
+MainSection:Button({ Title = "Force Reset" }, function()
 local health_offset = 0x194
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
