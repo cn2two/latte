@@ -1,4 +1,5 @@
-/*
+
+--[[
     
 ⠀⠀⣀⣤⠤⠶⠶⠶⠶⠶⠶⢶⠶⠶⠦⣤⣄⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣶⣦⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣤⡤⣤⠶⠴⠶⠶⠶⣶⠶⠶⢤⣤⣀⡀
 ⣴⡏⠡⢒⡸⠋⠀⠐⣾⠉⠉⠭⢄⣠⢤⡷⠷⢾⣛⣿⠷⣶⣤⣄⡀⠀⠀⠐⢿⣟⢲⡁⠐⣾⠛⠃⠀⠀⢀⣠⡤⠶⠒⣛⣩⠝⢋⣠⣰⣂⣤⠴⠏⠉⠓⢺⡿⢁⣴⣮⢽⡟
@@ -14,8 +15,8 @@
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠻⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 
 
- */
- /*                                                                                                                
+ ]]
+ --[[                                                                                                              
                                         hhhhhhh               iiii          tttt                                 
                                         h:::::h              i::::i      ttt:::t                                 
                                         h:::::h               iiii       t:::::t                                 
@@ -52,9 +53,9 @@ p:::::::p
 p:::::::p                                                                                                        
 p:::::::p                                                                                                        
 ppppppppp                                                                                                        
-           */     
+]]    
            
-/*
+--[[
                      _        _                        ____  
  _ __ ___   __ _  __| | ___  | |__  _   _    ___ _ __ |___ \ 
 | '_ ` _ \ / _` |/ _` |/ _ \ | '_ \| | | |  / __| '_ \  __) |
@@ -98,20 +99,20 @@ ppppppppp
                                      
                                      
                                                                                      
-*/
+]]
 loadstring(game:HttpGet("https://raw.githubusercontent.com/cn2two/latte/refs/heads/main/zes.lua"))()
 local Window = UI:Window({
     Title = "Artorias Client",
     Size = Vector2.new(700, 500),
     Flags = {},
 })
-local VK_F1 = 0x70 
+_G.VKBIND = 0x70
 local uiVisible = true
 spawn(function()
     local lastPressed = false
     while true do
         task.wait(0.05)
-        local pressed = iskeypressed(VK_F1) 
+        local pressed = iskeypressed(VKBIND) 
         if pressed and not lastPressed then
             lastPressed = true
             uiVisible = not uiVisible
