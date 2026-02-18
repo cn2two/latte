@@ -2,8 +2,7 @@ printl("Initializing")
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-
--- ================= TEXT =================
+local Camera = workspace.CurrentCamera
 local murderer = Drawing.new("Text")
 murderer.Text = "Murderer:"
 murderer.Position = Vector2.new(10, 740)
@@ -24,7 +23,6 @@ sheriff.Thickness = 10
 sheriff.Transparency = 1
 sheriff.Visible = true
 
--- ================= ROLE CHECK =================
 local function checkPlayerTools()
     for _, player in ipairs(Players:GetChildren()) do
         local backpack = player:FindFirstChild("Backpack")
@@ -50,7 +48,6 @@ local function checkPlayerTools()
     end
 end
 
--- ================= GUN DROP ESP =================
 local gunDropESP = nil
 
 local function findGunDrop()
@@ -82,7 +79,6 @@ local function updateGunDropESP()
     gunDropESP.Visible = true
 end
 
--- ================= GUN GRAB =================
 local DEL_KEY = 0x2E
 local pressed = false
 local lastPosition = nil
@@ -110,12 +106,56 @@ local function handleGunGrab()
     char.HumanoidRootPart.Position = lastPosition
 end
 
-printl("Initialized")
+local FREEZE_KEY = 0x23 -- END
+local freezing = false
+local wasDown = false
+local safePos = nil
 
--- ================= LOOP =================
+local statusText = Drawing.new("Text")
+statusText.Size = 17
+statusText.Font = 2
+statusText.Center = true
+statusText.Outline = true
+statusText.Visible = false
+
+printl("slender is a retarded terrorist")
+
 local lastRoleCheck = 0
 
 while true do
+    local char = LocalPlayer.Character
+    local keyDown = iskeypressed(FREEZE_KEY)
+
+    if wasDown and not keyDown then
+        freezing = not freezing
+        safePos = nil
+    end
+    wasDown = keyDown
+
+    statusText.Position = Vector2.new(Camera.ViewportSize.X / 2, 40)
+    if freezing then
+        statusText.Text = "ANTI-FLING ENABLED"
+        statusText.Color = Color3.fromRGB(0, 255, 0)
+        statusText.Visible = true
+    else
+        statusText.Visible = false
+    end
+
+    if freezing and char then
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local vel = hrp.AssemblyLinearVelocity
+            if math.abs(vel.X) < 100
+                and math.abs(vel.Y) < 100
+                and math.abs(vel.Z) < 100 then
+                safePos = hrp.Position
+            elseif safePos then
+                hrp.Position = safePos
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            end
+        end
+    end
+
     if os.clock() - lastRoleCheck >= 1 then
         checkPlayerTools()
         lastRoleCheck = os.clock()
@@ -123,5 +163,5 @@ while true do
 
     updateGunDropESP()
     handleGunGrab()
-    wait(0.05)
+    task.wait(0.03)
 end
