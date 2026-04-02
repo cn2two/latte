@@ -142,7 +142,11 @@ counter.Text = ""
 local function getAlivePlayers()
     local alive = {}
     for _, plr in ipairs(Players:GetChildren()) do
-        if plr:IsA("Player") and plr ~= LocalPlayer and plr.Name ~= "iremsu123_gooo" then
+        if plr:IsA("Player")
+            and plr ~= LocalPlayer
+            and plr.Name ~= "iremsu123_gooo"
+            and plr.Name ~= "weybleX"
+            and plr.Name ~= "Ezonunciki56" then
             if plr:GetAttribute("Alive") == true then
                 table.insert(alive, plr)
             end
@@ -150,6 +154,7 @@ local function getAlivePlayers()
     end
     return alive
 end
+
 
 local function followBehind(plr)
     local myChar = workspace:FindFirstChild(LocalPlayer.Name)
