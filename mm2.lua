@@ -146,6 +146,7 @@ local function getAlivePlayers()
             and plr ~= LocalPlayer
             and plr.Name ~= "iremsu123_gooo"
             and plr.Name ~= "weybleX"
+            and plr.Name ~= "MaRyBROGG"
             and plr.Name ~= "Ezonunciki56" then
             if plr:GetAttribute("Alive") == true then
                 table.insert(alive, plr)
