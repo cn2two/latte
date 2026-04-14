@@ -63,7 +63,7 @@ local function getRoot()
     return nil
 end
 UI.AddTab("Anti Fling", function(tab)
-    local main = tab:Section("Settings", "Left")
+    local main = tab:Section("Anti Fling", "Left")
     main:Toggle("antifling_enabled", "Enabled", false, function(value)
         binderEnable = value == true
         if not binderEnable then
