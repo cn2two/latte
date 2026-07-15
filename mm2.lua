@@ -102,7 +102,6 @@ local function handleGunGrab()
 
     local returnPosition = hrp.Position
     hrp.Position = gunDrop.Position
-    task.wait(0.001)
     hrp.Position = returnPosition
 end
 
