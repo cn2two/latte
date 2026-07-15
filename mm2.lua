@@ -100,7 +100,10 @@ local function handleGunGrab()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp or not gunDrop:IsA("BasePart") then return end
 
-    gunDrop.CFrame = hrp.CFrame
+    local returnPosition = hrp.Position
+    hrp.Position = gunDrop.Position
+    task.wait(0.001)
+    hrp.Position = returnPosition
 end
 
 local FREEZE_KEY = 0x23 -- END
