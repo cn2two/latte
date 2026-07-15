@@ -81,7 +81,6 @@ end
 
 local DEL_KEY = 0x2E
 local pressed = false
-local lastPosition = nil
 
 local function handleGunGrab()
     if not iskeypressed(DEL_KEY) then
@@ -98,12 +97,10 @@ local function handleGunGrab()
     end
 
     local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp or not gunDrop:IsA("BasePart") then return end
 
-    lastPosition = char.HumanoidRootPart.Position
-    char.HumanoidRootPart.Position = gunDrop.Position
-    wait(0.01)
-    char.HumanoidRootPart.Position = lastPosition
+    gunDrop.CFrame = hrp.CFrame
 end
 
 local FREEZE_KEY = 0x23 -- END
@@ -111,16 +108,9 @@ local freezing = false
 local wasDown = false
 local safePos = nil
 local VK_HOME = 0x24
-local UNWALK_KEY = 0x22 -- PAGE DOWN
 local running = false
 local homeKeyDown = false
 local originalPosition
-local unwalkEnabled = false
-local animateScript
-local animator
-local originalAnimateParent
-local originalAnimatorParent
-local lastUnwalkPress = false
 
 local statusText = Drawing.new("Text")
 statusText.Size = 17
@@ -180,45 +170,6 @@ local function followBehind(plr)
     )
 end
 
-local function enableUnwalk()
-    local char = LocalPlayer.Character
-    if not char then return end
-
-    printl("unwalk ON")
-
-    animateScript = char:FindFirstChild("Animate")
-    if animateScript then
-        originalAnimateParent = animateScript.Parent
-        animateScript.Parent = game
-    end
-
-    local humanoid = char:FindFirstChild("Humanoid")
-    if humanoid then
-        animator = humanoid:FindFirstChildOfClass("Animator")
-        if animator then
-            originalAnimatorParent = animator.Parent
-            animator.Parent = game
-        end
-    end
-end
-
-local function disableUnwalk()
-    printl("unwalk OFF")
-
-    if animateScript and originalAnimateParent then
-        animateScript.Parent = originalAnimateParent
-    end
-
-    if animator and originalAnimatorParent then
-        animator.Parent = originalAnimatorParent
-    end
-
-    animateScript = nil
-    animator = nil
-    originalAnimateParent = nil
-    originalAnimatorParent = nil
-end
-
 spawn(function()
     while true do
         wait(0.05)
@@ -260,27 +211,6 @@ spawn(function()
         end
     end
 end)
-
-spawn(function()
-    while true do
-        local pressed = iskeypressed(UNWALK_KEY)
-
-        if pressed and not lastUnwalkPress then
-            unwalkEnabled = not unwalkEnabled
-            if unwalkEnabled then
-                enableUnwalk()
-            else
-                disableUnwalk()
-            end
-        end
-
-        lastUnwalkPress = pressed
-        wait(0.05)
-    end
-end)
-
-printl("slender is a retarded terrorist")
-printl("unwalk loaded (PAGE DOWN to toggle)")
 
 local lastRoleCheck = 0
 
