@@ -543,6 +543,9 @@ UI.AddTab("Artorias", function(tab)
     local gameplay = tab:Section("Gameplay", "Left")
     gameplay:Toggle("mm2_coin_aura", "Coin Aura", false, function(value)
         state.coinAura = value == true
+        if state.coinAura then
+            task.spawn(updateCoinAura)
+        end
     end)
 
     gameplay:Toggle("mm2_gun_grab", "Grab Dropped Gun", false, function(value)
@@ -583,7 +586,7 @@ end)
 task.spawn(function()
     while true do
         updateCoinAura()
-        task.wait(1.25)
+        task.wait(state.coinAura and 0.2 or 1.25)
     end
 end)
 
