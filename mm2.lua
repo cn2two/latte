@@ -22,11 +22,18 @@ local state = {
     gunDropEsp = false,
     gunGrab = false,
     killAll = false,
+    predictionSilentAim = false,
     coinAura = false,
     visuals = false,
     debrisEnabled = false,
     debrisActive = false,
     originalGravity = originalGravity
+}
+local killAllWhitelist = {
+    iremsu123_gooo = true,
+    ezonunciki56 = true,
+    weyblex = true,
+    marybrogg = true
 }
 
 local visualStyle = {
@@ -42,6 +49,13 @@ local widgets = {}
 local drawings = {
     boxes = {},
     pathLines = {}
+}
+local visualCache = {
+    gunDrop = nil,
+    murdererRoot = nil,
+    objects = {},
+    parts = {},
+    trailParts = {}
 }
 
 local function safeRemove(drawing)
@@ -199,6 +213,9 @@ drawings.gunDrop.Visible = false
 drawings.trailLink = newLine(visualStyle.linkColor, 3)
 drawings.pathStart = newCircle(Color3.fromRGB(80, 255, 120))
 drawings.pathEnd = newCircle(Color3.fromRGB(255, 80, 80))
+drawings.predictionPoint = newCircle(Color3.fromRGB(80, 255, 120))
+drawings.predictionPoint.Radius = 6
+drawings.predictionLead = newLine(Color3.fromRGB(255, 210, 40), 2)
 
 local function findGunDrop()
     for _, object in ipairs(Workspace:GetChildren()) do
@@ -242,8 +259,8 @@ local function updateGunDropEsp()
         return
     end
 
-    local gunDrop = findGunDrop()
-    if not gunDrop or not gunDrop:IsA("BasePart") then
+    local gunDrop = visualCache.gunDrop
+    if not gunDrop or not gunDrop.Parent or not gunDrop:IsA("BasePart") then
         drawings.gunDrop.Visible = false
         return
     end
@@ -283,7 +300,8 @@ local function fireKillAll()
 
     local fired = 0
     for _, targetPlayer in ipairs(Players:GetChildren()) do
-        if targetPlayer ~= LocalPlayer and targetPlayer:IsA("Player") then
+        local whitelisted = killAllWhitelist[string.lower(tostring(targetPlayer.Name))] == true
+        if targetPlayer ~= LocalPlayer and targetPlayer:IsA("Player") and not whitelisted then
             local targetCharacter = targetPlayer.Character or Workspace:FindFirstChild(targetPlayer.Name)
             local targetRoot = targetCharacter and targetCharacter:FindFirstChild("HumanoidRootPart")
             if targetRoot then
@@ -298,6 +316,93 @@ local function fireKillAll()
     end
 
     return fired
+end
+
+local function scanMurdererRoot()
+    for _, targetPlayer in ipairs(Players:GetChildren()) do
+        if targetPlayer ~= LocalPlayer and targetPlayer:IsA("Player") then
+            local character = targetPlayer.Character or Workspace:FindFirstChild(targetPlayer.Name)
+            local backpack = targetPlayer:FindFirstChild("Backpack")
+            local hasKnife = (backpack and backpack:FindFirstChild("Knife"))
+                or (character and character:FindFirstChild("Knife"))
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if hasKnife and root and root:IsA("BasePart") then
+                return root
+            end
+        end
+    end
+
+    return nil
+end
+
+local function getMurdererRoot()
+    local root = visualCache.murdererRoot
+    if root and root.Parent then
+        return root
+    end
+
+    root = scanMurdererRoot()
+    visualCache.murdererRoot = root
+    return root
+end
+
+local function getTargetVelocity(root)
+    local velocity
+    local ok = pcall(function()
+        velocity = root.AssemblyLinearVelocity
+    end)
+    if not ok or typeof(velocity) ~= "Vector3" then
+        pcall(function()
+            velocity = root.Velocity
+        end)
+    end
+
+    if typeof(velocity) ~= "Vector3" then
+        return Vector3.new(0, 0, 0)
+    end
+    return velocity
+end
+
+local function getPredictionSeconds()
+    local pingMs = 0
+    if type(GetPingValue) == "function" then
+        local ok, value = pcall(GetPingValue)
+        if ok then
+            pingMs = tonumber(value) or 0
+        end
+    end
+
+    -- The observed target and the outgoing shot together are about one RTT behind.
+    return math.clamp(((pingMs / 1000) * 1.35) + 0.025, 0.025, 0.35)
+end
+
+local function getPredictedTargetPosition(targetRoot)
+    local displacement = getTargetVelocity(targetRoot) * getPredictionSeconds()
+    if displacement.Magnitude > 30 then
+        displacement = displacement.Unit * 30
+    end
+    return targetRoot.Position + displacement
+end
+
+local function firePredictionSilentAim()
+    local targetRoot = getMurdererRoot()
+    local character = LocalPlayer and (LocalPlayer.Character or Workspace:FindFirstChild(LocalPlayer.Name))
+    local characterRoot = character and character:FindFirstChild("HumanoidRootPart")
+    local gun = character and character:FindFirstChild("Gun")
+    local shoot = gun and gun:FindFirstChild("Shoot")
+    local handle = gun and gun:FindFirstChild("Handle")
+    if not targetRoot or not characterRoot or not shoot then
+        return false
+    end
+
+    local origin = (handle and handle:IsA("BasePart")) and handle.Position or characterRoot.Position
+    local predicted = getPredictedTargetPosition(targetRoot)
+    return pcall(function()
+        shoot:FireServer(
+            CFrame.new(origin.X, origin.Y, origin.Z),
+            CFrame.new(predicted.X, predicted.Y, predicted.Z)
+        )
+    end)
 end
 
 local function updateCoinAura()
@@ -339,6 +444,38 @@ local function project(position)
         return Vector2.new(point.X, point.Y), onScreen ~= false and point.Z > 0
     end
     return nil, false
+end
+
+local function updatePredictionMarker()
+    if not state.predictionSilentAim then
+        drawings.predictionPoint.Visible = false
+        drawings.predictionLead.Visible = false
+        return
+    end
+
+    local targetRoot = visualCache.murdererRoot
+    if not targetRoot or not targetRoot.Parent then
+        drawings.predictionPoint.Visible = false
+        drawings.predictionLead.Visible = false
+        return
+    end
+
+    local currentPoint, currentVisible = project(targetRoot.Position)
+    local predictedPoint, predictedVisible = project(getPredictedTargetPosition(targetRoot))
+    if predictedPoint and predictedVisible then
+        drawings.predictionPoint.Position = predictedPoint
+        drawings.predictionPoint.Visible = true
+    else
+        drawings.predictionPoint.Visible = false
+    end
+
+    if currentPoint and predictedPoint and currentVisible and predictedVisible then
+        drawings.predictionLead.From = currentPoint
+        drawings.predictionLead.To = predictedPoint
+        drawings.predictionLead.Visible = true
+    else
+        drawings.predictionLead.Visible = false
+    end
 end
 
 local function hideBox(lines)
@@ -387,7 +524,21 @@ local function drawRectangle(lines, minX, minY, maxX, maxY, color, thickness)
     end
 end
 
-local function drawObjectBox(object, lines)
+local function getObjectBoxOffsets(object)
+    if object.Name == "TrailPart" then
+        return nil
+    end
+
+    local half = object.Size * 0.5
+    return {
+        Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y, half.Z),
+        Vector3.new(-half.X, half.Y, -half.Z), Vector3.new(-half.X, half.Y, half.Z),
+        Vector3.new(half.X, -half.Y, -half.Z), Vector3.new(half.X, -half.Y, half.Z),
+        Vector3.new(half.X, half.Y, -half.Z), Vector3.new(half.X, half.Y, half.Z)
+    }
+end
+
+local function drawObjectBox(object, lines, offsets)
     if object.Name == "TrailPart" then
         local center, visible = project(object.Position)
         if not center or not visible then
@@ -399,13 +550,10 @@ local function drawObjectBox(object, lines)
         return
     end
 
-    local half = object.Size * 0.5
-    local offsets = {
-        Vector3.new(-half.X, -half.Y, -half.Z), Vector3.new(-half.X, -half.Y, half.Z),
-        Vector3.new(-half.X, half.Y, -half.Z), Vector3.new(-half.X, half.Y, half.Z),
-        Vector3.new(half.X, -half.Y, -half.Z), Vector3.new(half.X, -half.Y, half.Z),
-        Vector3.new(half.X, half.Y, -half.Z), Vector3.new(half.X, half.Y, half.Z)
-    }
+    if not offsets then
+        hideBox(lines)
+        return
+    end
     local minX, minY = math.huge, math.huge
     local maxX, maxY = -math.huge, -math.huge
     local visibleCount = 0
@@ -439,8 +587,12 @@ local function ensurePathLines(count)
 end
 
 local function updateTrailPath(trailParts)
-    if #trailParts < 2 then
-        ensurePathLines(0)
+    if #trailParts < 2
+        or not trailParts[1].Parent
+        or not trailParts[#trailParts].Parent then
+        for i = 1, #drawings.pathLines do
+            drawings.pathLines[i].Visible = false
+        end
         drawings.pathStart.Visible = false
         drawings.pathEnd.Visible = false
         return
@@ -448,15 +600,21 @@ local function updateTrailPath(trailParts)
 
     ensurePathLines(#trailParts - 1)
     for i = 1, #trailParts - 1 do
-        local from, fromVisible = project(trailParts[i].Position)
-        local to, toVisible = project(trailParts[i + 1].Position)
         local line = drawings.pathLines[i]
-        line.Color = visualStyle.pathColor
-        line.Thickness = visualStyle.pathThickness
-        if from and to and fromVisible and toVisible then
-            line.From = from
-            line.To = to
-            line.Visible = true
+        local fromPart = trailParts[i]
+        local toPart = trailParts[i + 1]
+        if fromPart.Parent and toPart.Parent then
+            local from, fromVisible = project(fromPart.Position)
+            local to, toVisible = project(toPart.Position)
+            line.Color = visualStyle.pathColor
+            line.Thickness = visualStyle.pathThickness
+            if from and to and fromVisible and toVisible then
+                line.From = from
+                line.To = to
+                line.Visible = true
+            else
+                line.Visible = false
+            end
         else
             line.Visible = false
         end
@@ -479,7 +637,7 @@ local function updateTrailPath(trailParts)
 end
 
 local function updateTrailLink(parts)
-    if #parts < 2 then
+    if #parts < 2 or not parts[1].Parent or not parts[2].Parent then
         drawings.trailLink.Visible = false
         return
     end
@@ -512,15 +670,71 @@ local function updateVisuals()
         return
     end
 
+    for i = 1, #visualCache.objects do
+        local entry = visualCache.objects[i]
+        local object = entry.object
+        local lines = drawings.boxes[entry.key]
+        if object and object.Parent and lines then
+            drawObjectBox(object, lines, entry.offsets)
+        elseif lines then
+            hideBox(lines)
+        end
+    end
+
+    updateTrailLink(visualCache.parts)
+    updateTrailPath(visualCache.trailParts)
+end
+
+local function refreshVisualCache()
+    local workspaceChildren = nil
+    if state.gunDropEsp or state.visuals then
+        workspaceChildren = Workspace:GetChildren()
+    end
+
+    if state.gunDropEsp then
+        local gunDrop = nil
+        for _, object in ipairs(workspaceChildren) do
+            gunDrop = object:FindFirstChild("GunDrop")
+            if gunDrop then
+                break
+            end
+        end
+        visualCache.gunDrop = gunDrop
+    else
+        visualCache.gunDrop = nil
+    end
+
+    if state.predictionSilentAim then
+        visualCache.murdererRoot = scanMurdererRoot()
+    else
+        visualCache.murdererRoot = nil
+    end
+
+    if not state.visuals then
+        visualCache.objects = {}
+        visualCache.parts = {}
+        visualCache.trailParts = {}
+        for key in pairs(drawings.boxes) do
+            removeBox(key)
+        end
+        return
+    end
+
     local live = {}
+    local objects = {}
     local parts = {}
     local trailParts = {}
-    for _, object in ipairs(Workspace:GetChildren()) do
+    for _, object in ipairs(workspaceChildren) do
         if object.Name == "Part" or object.Name == "TrailPart" then
             local key = objectKey(object)
-            live[key] = object
-            local lines = ensureBox(key)
-            drawObjectBox(object, lines)
+            live[key] = true
+            objects[#objects + 1] = {
+                key = key,
+                object = object,
+                offsets = getObjectBoxOffsets(object)
+            }
+            ensureBox(key)
+
             if object.Name == "Part" then
                 parts[#parts + 1] = object
             else
@@ -535,8 +749,10 @@ local function updateVisuals()
         end
     end
 
-    updateTrailLink(parts)
-    updateTrailPath(trailParts)
+    visualCache.objects = objects
+    visualCache.parts = parts
+    visualCache.trailParts = trailParts
+    ensurePathLines(math.max(#trailParts - 1, 0))
 end
 
 UI.AddTab("Artorias", function(tab)
@@ -544,7 +760,7 @@ UI.AddTab("Artorias", function(tab)
     gameplay:Toggle("mm2_coin_aura", "Coin Aura", false, function(value)
         state.coinAura = value == true
         if state.coinAura then
-            task.spawn(updateCoinAura)
+            updateCoinAura()
         end
     end)
 
@@ -559,6 +775,15 @@ UI.AddTab("Artorias", function(tab)
     end)
     widgets.killAll = gameplay:Keybind("mm2_kill_all_key", 0x24, "hold")
     addHotkey(widgets.killAll, "Kill All", "mm2_kill_all")
+
+    gameplay:Toggle("mm2_prediction_silent_aim", "Prediction Silent Aim", false, function(value)
+        state.predictionSilentAim = value == true
+        if state.predictionSilentAim then
+            refreshVisualCache()
+        end
+    end)
+    widgets.predictionSilentAim = gameplay:Keybind("mm2_prediction_silent_aim_key", 0x42, "hold")
+    addHotkey(widgets.predictionSilentAim, "Prediction Silent Aim", "mm2_prediction_silent_aim")
 
     gameplay:Toggle("mm2_debris", "Become Debris", false, function(value)
         state.debrisEnabled = value == true
@@ -577,66 +802,104 @@ UI.AddTab("Artorias", function(tab)
     local visuals = tab:Section("Visuals", "Right")
     visuals:Toggle("mm2_gun_drop_esp", "Dropped Gun ESP", false, function(value)
         state.gunDropEsp = value == true
+        if state.gunDropEsp then
+            refreshVisualCache()
+        end
     end)
     visuals:Toggle("mm2_visuals", "Knife & Gun Visuals", false, function(value)
         state.visuals = value == true
+        if state.visuals then
+            refreshVisualCache()
+        end
     end)
 end)
 
 task.spawn(function()
-    while true do
-        updateCoinAura()
-        task.wait(state.coinAura and 0.2 or 1.25)
-    end
-end)
-
-task.spawn(function()
-    while true do
-        local active = state.debrisEnabled and keybindActive(widgets.debris)
-        if active ~= state.debrisActive then
-            setDebrisActive(active)
-        elseif active then
-            setGravity(0)
-            setSit(true)
-        end
-
-        task.wait(0.03)
-    end
-end)
-
-task.spawn(function()
-    local lastRoleCheck = 0
     local lastGunGrabActive = false
+    local lastSilentAimActive = false
+    local nextCoinAuraAt = 0
+    local nextDebrisAt = 0
+    local nextRoleCheckAt = 0
     local nextKillAllAt = 0
 
     while true do
         local now = os.clock()
-        if now - lastRoleCheck >= 1 then
-            updateRoles()
-            lastRoleCheck = now
+
+        if now >= nextCoinAuraAt then
+            if state.coinAura then
+                updateCoinAura()
+                nextCoinAuraAt = now + 0.75
+            else
+                nextCoinAuraAt = now + 1.5
+            end
         end
-        updateGunDropEsp()
+
+        if now >= nextDebrisAt then
+            local debrisActive = state.debrisEnabled and keybindActive(widgets.debris)
+            if debrisActive ~= state.debrisActive then
+                setDebrisActive(debrisActive)
+            elseif debrisActive then
+                setGravity(0)
+                setSit(true)
+            end
+            nextDebrisAt = now + 0.15
+        end
+
+        if now >= nextRoleCheckAt then
+            updateRoles()
+            nextRoleCheckAt = now + 1.25
+        end
 
         local gunGrabActive = state.gunGrab and keybindActive(widgets.gunGrab)
         if gunGrabActive and not lastGunGrabActive then
-            task.spawn(grabGun)
+            grabGun()
         end
         lastGunGrabActive = gunGrabActive
 
         local killAllActive = state.killAll and keybindActive(widgets.killAll)
         if killAllActive and now >= nextKillAllAt then
             fireKillAll()
-            nextKillAllAt = now + 0.15
+            nextKillAllAt = now + 0.25
         end
 
-        task.wait(0.03)
+        local silentAimActive = state.predictionSilentAim and keybindActive(widgets.predictionSilentAim)
+        if silentAimActive and not lastSilentAimActive then
+            firePredictionSilentAim()
+        end
+        lastSilentAimActive = silentAimActive
+
+        task.wait(0.05)
     end
 end)
 
 task.spawn(function()
     while true do
-        updateVisuals()
-        task.wait(0.01)
+        refreshVisualCache()
+        local active = state.gunDropEsp
+            or state.visuals
+            or state.predictionSilentAim
+        task.wait(active and 0.5 or 1.5)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        local active = state.gunDropEsp
+            or state.visuals
+            or state.predictionSilentAim
+
+        if active then
+            updateGunDropEsp()
+            updateVisuals()
+            updatePredictionMarker()
+            task.wait(0.01)
+        else
+            drawings.gunDrop.Visible = false
+            drawings.predictionPoint.Visible = false
+            drawings.predictionLead.Visible = false
+            hideVisuals()
+            task.wait(0.2)
+        end
     end
 end)
 
